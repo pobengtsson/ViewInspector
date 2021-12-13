@@ -22,6 +22,30 @@ final class ViewEnvironmentTests: XCTestCase {
         let sut = EmptyView().environmentObject(TestEnvObject())
         XCTAssertNoThrow(try sut.inspect().emptyView())
     }
+
+   func testEnvironmentObjectThrowsWhenNotSet() throws {
+       let expectation = XCTestExpectation()
+       var sut = TestCustomView()
+       sut.on(\.didAppear) { view in
+          defer { expectation.fulfill() }
+          XCTAssertThrows(try view.environment(TestEnvObject.self),
+                          "TestCustomView is missing EnvironmentObjects: [\"TestEnvObject\"]")
+       }
+       ViewHosting.host(view: sut) // does not set the environmentObject
+       wait(for: [expectation], timeout: 1)
+   }
+
+    func testGetEnvironmentObject() throws {
+        let expectedObject = TestEnvObject()
+        let expectation = XCTestExpectation()
+        var sut = TestCustomView()
+        sut.on(\.didAppear) { view in
+           defer { expectation.fulfill() }
+            XCTAssertEqual(try view.environment(TestEnvObject.self), expectedObject)
+        }
+        ViewHosting.host(view: sut.environmentObject(expectedObject))
+        wait(for: [expectation], timeout: 1)
+    }
     
     func testTransformEnvironment() throws {
         let sut = EmptyView().transformEnvironment(\.testKey, transform: { _ in })
@@ -30,7 +54,21 @@ final class ViewEnvironmentTests: XCTestCase {
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
-private class TestEnvObject: ObservableObject { }
+private struct TestCustomView: View & Inspectable {
+    var body: some View {
+        EmptyView().onAppear { didAppear?(self) }
+    }
+    internal var didAppear: ((Self) -> Void)?
+}
+
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
+private class TestEnvObject: ObservableObject & Equatable {
+   static func == (lhs: TestEnvObject, rhs: TestEnvObject) -> Bool {
+      lhs.id == rhs.id
+   }
+
+    var id = UUID()
+}
 
 private struct TestEnvKey: EnvironmentKey {
     static var defaultValue: Self { .init() }

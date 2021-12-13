@@ -8,6 +8,10 @@ public extension InspectableView {
     func environment<T>(_ keyPath: WritableKeyPath<EnvironmentValues, T>) throws -> T {
         return try environment(keyPath, call: "environment(\(Inspector.typeName(type: T.self)))")
     }
+
+   func environment<T>(_ objectType: T.Type) throws -> T {
+       try environment(objectType, call: "environment(\(Inspector.typeName(type: T.self)))")
+   }
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
@@ -28,6 +32,21 @@ internal extension InspectableView {
         }
         return try Inspector.cast(value: try modifier.value(), type: V.self)
     }
+
+   func environment<T>(_ objectType: T.Type, call: String) throws -> T {
+      guard let environmentObject = content.medium.environmentObjects.last(where: { envObj in
+         if envObj is T {
+            return true
+         } else {
+            return false
+         }
+      }) else {
+         let descr = String(describing: objectType)
+         throw InspectionError.missingEnvironmentObjects(
+            view: Inspector.typeName(value: content.view, prefixOnly: true), objects: [descr])
+      }
+      return try Inspector.cast(value: environmentObject, type: T.self)
+   }
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
